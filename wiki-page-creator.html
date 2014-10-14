@@ -36,7 +36,7 @@ a {
   var formElements = ['sprint', 'milestone', 'bug', 'points'];
   var elements = ['input', 'output', 'url', 'updateButton'].concat(formElements);
   var reTemplate = /<([^>]+)>/g;
-  var reRemoveHead = /^.*?\n(?===)/;
+  var reRemoveHead = /^[\s\S]*?\n(?===)/; // \s\S catches also the newline character
   var reSprintMilestone = /(?=S)/;
 
   var urlTemplate = [
