@@ -80,7 +80,7 @@ a {
   }
 
   function refresh(e) {
-    if (e.target === dom.output) {
+    if (e && e.target === dom.output) {
       return;
     }
 
