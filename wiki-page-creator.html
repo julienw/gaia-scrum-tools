@@ -1,0 +1,128 @@
+<html><head>
+<meta http-equiv="content-type" content="text/html; charset=UTF-8">
+<title>Scrum wiki page creator</title>
+<style>
+html, body {
+  font-family: sans-serif;
+}
+
+button {
+  border: 0;
+  background: none;
+  color: blue;
+  text-decoration: underline;
+  cursor: pointer;
+  font: inherit;
+  display: inline;
+}
+
+a {
+  padding: 0 6px;
+}
+</style>
+</head>
+<body>
+<div><label>Sprint name <input id='sprint'></label></div>
+<div><label>Milestone name <input id='milestone'></label> <button id='updateButton'>force update</button></div>
+<div><label>Velocity <input id='points'></label></div>
+<div><label>Bug number <input id='bug'></label> <a id='url' href='' target='_blank'>create it!</a> (opens a new window)</div>
+<textarea id="input" placeholder="Paste the template here" rows="50" cols="80"></textarea>
+<textarea id="output" placeholder="Receive formatted version here" rows="50" cols="80"></textarea>
+
+
+<script>
+  var dom = {};
+  var form = {};
+  var formElements = ['sprint', 'milestone', 'bug', 'points'];
+  var elements = ['input', 'output', 'url', 'updateButton'].concat(formElements);
+  var reTemplate = /<([^>]+)>/g;
+  var reRemoveHead = /^.*?\n(?===)/;
+  var reSprintMilestone = /(?=S)/;
+
+  var urlTemplate = [
+    'https://bugzilla.mozilla.org/enter_bug.cgi?',
+    'product=Firefox OS&',
+    'component=Gaia::SMS&',
+    'short_desc=SMS sprint <SPRINT>&',
+    'alias=sms-sprint-<SPRINT>&',
+    'target_milestone=<MILESTONE>&',
+    'rep_platform=ARM&',
+    'op_sys=Gonk (Firefox OS)&',
+    'bug_file_loc=https://wiki.mozilla.org/Gaia/SMS/Scrum/<SPRINT>&',
+    'cc=:steveck, :julien, :azasypkin&',
+    'status_whiteboard=[p=<POINTS>]&',
+    'keywords=meta'
+  ].join('');
+
+  function init() {
+    elements.forEach((id) => {
+      dom[id] = document.getElementById(id);
+    });
+  }
+
+  function replace(template, replacements) {
+    return template.replace(reTemplate, function($0, $1) {
+      $1 = $1.toLowerCase();
+      return form[$1] || $0;
+    });
+  }
+
+  function replaceEncoded(template, replacements) {
+    var encoded = {};
+    for (var key in replacements) {
+      encoded[key] = encodeURIComponent(replacements[key]);
+    }
+    return replace(template, encoded);
+  }
+
+  function removeHead(input) {
+    return input.replace(reRemoveHead, '');
+  }
+
+  function refresh(e) {
+    if (e.target === dom.output) {
+      return;
+    }
+
+    if (!dom.sprint || !dom.milestone || !dom.points) {
+      return;
+    }
+
+    var url = replaceEncoded(urlTemplate, form);
+    dom.url.href = url;
+
+    form.milestone_url = encodeURIComponent(form.milestone);
+
+    var input = removeHead(dom.input.value);
+    dom.output.value = replace(input, form);
+  }
+
+  function syncValues() {
+    formElements.forEach((id) => {
+      form[id] = dom[id].value;
+    });
+  }
+
+  function updateMilestone(opts = {}) {
+    var calculatedMilestone = form.sprint.replace(reSprintMilestone, ' ');
+    if (!opts.force && form.milestone.startsWith(calculatedMilestone)) {
+      return;
+    }
+    form.milestone = dom.milestone.value = calculatedMilestone;
+  }
+
+  function attachEvents() {
+    document.body.addEventListener('input', refresh);
+    document.body.addEventListener('input', syncValues, true);
+
+    dom.sprint.addEventListener('input', () => updateMilestone());
+    dom.updateButton.addEventListener('click', () => updateMilestone({ force: true }));
+  }
+
+
+
+  init();
+  attachEvents();
+  refresh();
+</script>
+</body></html>
