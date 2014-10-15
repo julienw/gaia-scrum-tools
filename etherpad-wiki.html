@@ -1,0 +1,167 @@
+<html>
+<head>
+<title>Etherpad-to-Wiki Converter</title>
+<script>
+window.onload = function() {
+  var input = document.getElementById('in');
+  var output = document.getElementById('out');
+  var names = [];
+  var acceptedNames = [];
+  var reportStartRegex = /(\w+) \(last update(d?).*\)/;
+  var firstClick = true;
+
+  function getToday() {
+    var date = new Date();
+    var monthNames = [
+      "January", "February", "March", "April", "May", "June", "July", "August",
+      "September", "October", "November", "December"];
+    var month = monthNames[date.getMonth()];
+    var day = ("" + date.getDate()).slice(-2);
+    return month + ' ' + day;
+  }
+
+  function formatExample() {
+    input.value = input.value.replace('TODAY', getToday(), 'g');
+  }
+
+  function getAllNames(text) {
+    names = [];
+
+    var lines = text.split('\n');
+    var match;
+    for (var i = 0; i < lines.length; i++) {
+      match = reportStartRegex.exec(lines[i]);
+      if (match && !/^\/\//.exec(lines[i])) {
+        names.push(match[1]);
+      }
+    }
+  }
+
+  function formatBugNumbers(text) {
+    return text.replace(/bug (\d{4,})/ig, "{{Bug|$1}}");
+  }
+
+  function formatParticipants(text) {
+    var today = getToday();
+
+    var newText = '';
+    var lines = text.split('\n');
+    var copying = false;
+    var match;
+    for (var i = 0; i < lines.length; i++) {
+      if (copying) {
+        if (reportStartRegex.exec(lines[i]) || /--+/.exec(lines[i])) {
+          copying = false;
+          newText += '\n';
+          i--;
+        } else if (lines[i] && lines[i].length > 1) {
+          newText += lines[i] + '\n';
+        }
+      } else {
+        // Kind of gross but I don't feel like doing this properly using regex.
+        if ((match = reportStartRegex.exec(lines[i])) &&
+            (lines[i].contains(today + ')') || lines[i].contains(today + 'th)') ||
+             lines[i].contains(today + 'rd)') || lines[i].contains(today + 'st)'))) {
+          copying = true;
+          newText += '====' + match[1] + '====\n';
+          acceptedNames.push(match[1]);
+        }
+      }
+    }
+
+    return newText;
+  }
+
+  function formatComments(text) {
+    return text.replace(/^((?!http\:).)\/\/.*(\n)?/g, '');
+  }
+
+  function formatBullets(text) {
+    return text.replace(/\*([a-zA-z].*)/g, '* $1');
+  }
+
+  function formatAbsentees(text) {
+    names.forEach(function(name) {
+      if (acceptedNames.indexOf(name) === -1) {
+        text += '====' + name + '====\n* Absent/no report\n\n';
+      }
+    });
+    return text;
+  }
+
+  // We shouldn't need this, but I don't feel like figuring out why it's not
+  // working as expected.
+  function formatEndlines(text) {
+    var lines = text.split('\n');
+    while (lines && lines.length > 1 && !lines[lines.length - 1]) {
+      lines.pop();
+    }
+    return lines.join('\n');
+  }
+
+  function formatOutput() {
+    formatExample();
+
+    var text = input.value;
+
+    if (!text) {
+      output.value = '';
+      return;
+    }
+
+    getAllNames(text);
+
+    text = formatComments(text);
+    text = formatBugNumbers(text);
+    text = formatParticipants(text);
+    text = formatBullets(text);
+    text = formatAbsentees(text);
+    text = formatEndlines(text);
+
+    output.value = text;
+  }
+
+  ['change', 'keydown', 'keyup'].forEach(function(evtName) {
+    input.addEventListener(evtName, formatOutput);
+  });
+
+  input.addEventListener('click', function(e) {
+    if (firstClick) {
+      input.value = output.value = '';
+      firstClick = false;
+    }
+  });
+
+  formatOutput();
+};
+</script>
+</head>
+<body>
+<textarea id="in" placeholder="Paste the report here" rows="50" cols="80">
+// Etherpad daily standup converter into Wiki format
+// FxOS dialer team daily standup meeting Etherpad
+//
+// Bigger example: https://etherpad.mozilla.org/fxos-dialer-scrum
+//
+// Anything with // at the beginning will be ignored
+
+drs (last updated TODAY)
+* Wrote etherpad daily standup converter
+*Spacing issues will be fixed
+* Bug 123456 will be automatically converted
+
+PTOdude (last updated TODAYth)
+* I'm on PTO today
+---
+* I have old notes from days ago, but the --- makes them get ignored
+* I did some refactors
+* And testing
+* And stuff
+
+slowpoke (last updated July 13)
+* Oh no, I forgot to update my report
+* Looks like I'll be marked as absent/no report
+</textarea>
+<textarea id="out" placeholder="Receive formatted version here" rows="50" cols="80"></textarea>
+</body>
+</html>

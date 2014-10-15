@@ -1,0 +1,95 @@
+<head>
+<title>FxOS Sprint Burndown Chart Generator</title>
+</head>
+
+<script>
+function formEltChanged(e) {
+  var name = e.target.name;
+  localStorage.setItem(name, e.target.value);
+
+  composeChart();
+}
+
+function composeChart() {
+  var imgElt = document.getElementById('chart');
+  var title = document.getElementsByName('title')[0].value;
+  var points = document.getElementsByName('points')[0].value;
+
+  var startVelocity = parseInt(points);
+
+  var url =
+    'http://chart.apis.google.com/chart?chs=600x250&cht=lxy&chtt=' +
+    encodeURIComponent(title) +
+    '&chxt=x,y&chxl=days&chdl=Estimated|Actual&chco=FF0000,00FF00&chd=t:-1|' +
+    startVelocity +
+    ',0|-1|' +
+    points +
+    '&chxr=0,1,10,1|1,0,' +
+    startVelocity +
+    ',1&chds=0,' +
+    startVelocity +
+    '&chm=s,0000ff,1,-1,5';
+
+  imgElt.src = url;
+}
+
+window.onload = function() {
+  var title = localStorage.getItem('title');
+  var points = localStorage.getItem('points');
+
+  var titleElt = document.getElementsByName('title')[0];
+  var pointsElt = document.getElementsByName('points')[0];
+
+  var formElt = document.getElementById('burndown');
+
+  var exampleBtn = document.getElementById('example');
+  var resetBtn = document.getElementById('reset');
+
+  if (title) {
+    titleElt.value = title;
+  }
+  if (points) {
+    pointsElt.value = points;
+  }
+
+  formElt.addEventListener('change', formEltChanged, true);
+  formElt.addEventListener('keyup', formEltChanged, true);
+
+  exampleBtn.addEventListener('click', function(e) {
+    pointsElt.value = '12,11,8,7,8,4,5,4,2,0';
+    e.preventDefault();
+    composeChart();
+  });
+
+  resetBtn.addEventListener('click', function(e) {
+    setTimeout(function() {
+      composeChart();
+      localStorage.setItem('title', titleElt.value);
+      localStorage.setItem('points', pointsElt.value);
+    });
+  });
+
+  composeChart();
+};
+</script>
+
+<body>
+<form id="burndown">
+  <h3>Burndown Chart Generator</h3>
+
+  <button id="example">Example</button>
+  <button id="reset" type="reset">Reset</button>
+  <br>
+
+  <label for="title">Title</label>
+  <input type="text" name="title" value="Burndown chart for v2.X-SY" size="80"></input>
+  <br>
+
+  <label for="points">Points</label>
+  <input type="text" name="points" value="27,0,0,0,0,0,0,0,0,0,0" size="80"></input>
+  <br>
+  <br>
+
+  <img id="chart"></img>
+</form>
+</body>

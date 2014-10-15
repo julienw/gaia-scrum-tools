@@ -1,0 +1,144 @@
+<html>
+<head>
+<title>FxOS Velocity Calculator</title>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
+<script>
+var targetMilestones = [];
+
+function getMonth(month) {
+  return new Date(Date.parse(month + " 1, 2012")).getMonth() + 1;
+}
+
+function padDigits(number, digits) {
+  return Array(Math.max(digits - String(number).length + 1, 0)).join(0) + number;
+}
+
+var curDate = (new Date()).getTime();
+var milestoneDuration = (new Date('2000-01-14')).getTime() - (new Date('2000-01-01')).getTime();
+
+function updatePoints(bugs) {
+  var bugsElt = $('#bugs');
+  bugsElt.html('');
+
+  $(document.body).addClass('loaded');
+
+  if (bugs.length === 0) {
+    bugsElt.html('None');
+    return 0;
+  }
+
+  var plannedOnly = $('#plannedOnly')[0].checked;
+
+  var points = bugs.reduce(function(curVal, bug) {
+    var whiteboard = bug.whiteboard;
+
+    if (plannedOnly && !/planned\-sprint/.exec(whiteboard)) {
+      return typeof curVal === 'object' ? 0 : curVal;
+    }
+
+    var points = /c\=(\d+)/.exec(whiteboard);
+    points = points ? parseInt(points[1]) : 1;
+
+    var bugElt = document.createElement('li');
+    bugsElt.append('<li><a target="_blank" href="https://bugzilla.mozilla.org/show_bug.cgi?id=' + bug.id + '">Bug ' + bug.id + '</a> - ' + bug.summary + ' <em>' + whiteboard + '</em><ul><li>' + points + ' points</li></ul></li>');
+
+    return typeof curVal === 'object' ? points : curVal + points;
+  });
+
+  $('#points').text(parseInt(points) || 0);
+}
+
+function bindChange() {
+  $('#targetMilestones, #plannedOnly').change(function(e) {
+    $(document.body).removeClass('loaded');
+
+    var url = 'https://bugzilla.mozilla.org/rest/bug?component=Gaia::Dialer&target_milestone=' +
+              $('#targetMilestones option:selected').text() +
+              '&resolution=---&include_fields=id,summary,status,resolution,whiteboard';
+    $.ajax({
+      url: url,
+      success: function(data) {
+        updatePoints(data.bugs);
+      },
+      error: function() {
+        alert('Error retrieving bugs for this milestone');
+      }
+    });
+  });
+}
+
+function insertMilestones() {
+  var targetMilestonesElt = $('#targetMilestones');
+  targetMilestonesElt.html('');
+  targetMilestones.forEach(function(targetMilestone) {
+    var time = /\(([^)]+)\)/.exec(targetMilestone)[1];
+    var day = padDigits(parseInt(time), 2);
+    var month = padDigits(getMonth(time.replace(/\d/g, '')), 2);
+
+    var milestoneEnd = (new Date('2014-' + month + '-' + day)).getTime();
+    var milestoneStart = milestoneEnd - milestoneDuration;
+
+    var targetMilestoneElt = document.createElement('option');
+    targetMilestoneElt.text = targetMilestone;
+    targetMilestoneElt.selected = curDate <= milestoneEnd && curDate >= milestoneStart;
+
+    targetMilestonesElt[0].add(targetMilestoneElt);
+  });
+
+  targetMilestonesElt.change();
+}
+
+function requestMilestones(callback) {
+  $.ajax({
+    url: 'https://bugzilla.mozilla.org/rest/product/Firefox%20OS?component=Gaia',
+    success: function(data) {
+      targetMilestones = data.products[0].milestones.slice(-6).map(milestone => milestone.name);
+      insertMilestones();
+    },
+    error: function() {
+      alert('Error loading milestones from Bugzilla');
+    }
+  });
+}
+
+window.onload = function() {
+  bindChange();
+  requestMilestones();
+};
+</script>
+
+<style>
+body:not(.loaded) .hideLoading, body.loaded .showLoading {
+  display: none;
+}
+</style>
+</head>
+
+<body>
+  <h1 style="text-align: center;">Are We Done Yet?</h1>
+  <div>
+    <p>This tool measures the total amount of points outstanding in a sprint. It will match the following:</p>
+    <table border="1">
+      <tr><td>"Planned Only" not enabled<td><em>c=<span style="color: red;">X</span></em> in whiteboard</td></tr>
+      <tr><td>"Planned Only" enabled<td><em>planned-sprint c=<span style="color: red;">X</span></em> in whiteboard</td></tr>
+    </table>
+    <p><em><span style="color: red;">X</span></em> values are summed up below.</p>
+  <form id="velocity">
+    <label for="targetMilestones">Target Milestone</label>
+    <select name="targetMilestones" id="targetMilestones">
+      <option>Loading...</option>
+    </select>
+    <label for="plannedOnly">Planned Only</label>
+    <input type="checkbox" name="plannedOnly" id="plannedOnly"></input>
+  </form>
+  <div class="hideLoading">
+    <h3>Your current velocity points are:</h3>
+    <h3 id="points">---</h3>
+    <h3>Bugs</h3>
+    <ul id="bugs"></ul>
+  </div>
+  <div class="showLoading">
+    <h3>Loading...</h3>
+  </div>
+</body>
+</html>
