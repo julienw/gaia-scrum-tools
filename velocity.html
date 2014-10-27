@@ -29,23 +29,36 @@ function updatePoints(bugs) {
 
   var plannedOnly = $('#plannedOnly')[0].checked;
 
-  var points = bugs.reduce(function(curVal, bug) {
+  var totalPoints = 0;
+  var unestimatedBugs = 0;
+  bugs.forEach(function(bug) {
     var whiteboard = bug.whiteboard;
 
     if (plannedOnly && !/planned\-sprint/.exec(whiteboard)) {
-      return typeof curVal === 'object' ? 0 : curVal;
+      return;
     }
 
     var points = /c\=(\d+)/.exec(whiteboard);
+    var estimateRequired = !points && !!(/c\=/.exec(whiteboard));
+
     points = points ? parseInt(points[1]) : 1;
+    unestimatedBugs += estimateRequired ? 1 : 0;
+
+    totalPoints += points;
 
     var bugElt = document.createElement('li');
     bugsElt.append('<li><a target="_blank" href="https://bugzilla.mozilla.org/show_bug.cgi?id=' + bug.id + '">Bug ' + bug.id + '</a> - ' + bug.summary + ' <em>' + whiteboard + '</em><ul><li>' + points + ' points</li></ul></li>');
-
-    return typeof curVal === 'object' ? points : curVal + points;
   });
 
-  $('#points').text(parseInt(points) || 0);
+  if (unestimatedBugs) {
+    $('#points').html(
+      totalPoints + '<br>' +
+      '<font color="red">Estimates required.</font><br>' +
+      'Mean after estimates: ' + (totalPoints + unestimatedBugs*2) + '<br>' +
+      'Max after estimates: ' + (totalPoints + unestimatedBugs*5));
+  } else {
+    $('#points').text(totalPoints);
+  }
 }
 
 function bindChange() {
@@ -92,7 +105,8 @@ function requestMilestones(callback) {
   $.ajax({
     url: 'https://bugzilla.mozilla.org/rest/product/Firefox%20OS?component=Gaia',
     success: function(data) {
-      targetMilestones = data.products[0].milestones.slice(-6).map(milestone => milestone.name);
+      targetMilestones = data.products[0].milestones.slice(1, 6).map(milestone => milestone.name);
+console.log(targetMilestones);
       insertMilestones();
     },
     error: function() {
