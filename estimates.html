@@ -1,6 +1,6 @@
 <html>
 <head>
-<title>FxOS Velocity Calculator</title>
+<title>FxOS Estimates List Generator</title>
 <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
 <script>
 var targetMilestones = [];
@@ -16,7 +16,15 @@ function padDigits(number, digits) {
 var curDate = (new Date()).getTime();
 var milestoneDuration = (new Date('2000-01-14')).getTime() - (new Date('2000-01-01')).getTime();
 
-function updatePoints(bugs) {
+var bugs;
+
+function getMembers() {
+  var membersElt = document.getElementById('team');
+  var members = membersElt.value;
+  return members.split('\n');
+}
+
+function updateEstimates() {
   var bugsElt = $('#bugs');
   bugsElt.html('');
 
@@ -27,42 +35,27 @@ function updatePoints(bugs) {
     return 0;
   }
 
-  var plannedOnly = $('#plannedOnly')[0].checked;
+  var members = getMembers();
 
-  var totalPoints = 0;
-  var unestimatedBugs = 0;
   bugs.forEach(function(bug) {
     var whiteboard = bug.whiteboard;
 
-    if (plannedOnly && !/planned\-sprint/.exec(whiteboard)) {
+    if (!/c\=/.exec(whiteboard) || /c\=(\d+)/.exec(whiteboard)) {
       return;
     }
 
-    var points = /c\=(\d+)/.exec(whiteboard);
-    var estimateRequired = !points && !!(/c\=/.exec(whiteboard));
+    bugsElt.append('<br>Bug ' + bug.id + ' - ' + bug.summary + '<br>');
+    bugsElt.append('https://bugzilla.mozilla.org/show_bug.cgi?id=' + bug.id + '<br>');
 
-    points = points ? parseInt(points[1]) : 1;
-    unestimatedBugs += estimateRequired ? 1 : 0;
-
-    totalPoints += points;
-
-    var bugElt = document.createElement('li');
-    bugsElt.append('<li><a target="_blank" href="https://bugzilla.mozilla.org/show_bug.cgi?id=' + bug.id + '">Bug ' + bug.id + '</a> - ' + bug.summary + ' <em>' + whiteboard + '</em><ul><li>' + points + ' points</li></ul></li>');
+    bugsElt.append('Consensus: ' + '<br>');
+    members.forEach(function(member) {
+      bugsElt.append(member + ': <br>');
+    });
   });
-
-  if (unestimatedBugs) {
-    $('#points').html(
-      totalPoints + '<br>' +
-      '<font color="red">Estimates required.</font><br>' +
-      'Mean after estimates: ' + (totalPoints + unestimatedBugs*2) + '<br>' +
-      'Max after estimates: ' + (totalPoints + unestimatedBugs*5));
-  } else {
-    $('#points').text(totalPoints);
-  }
 }
 
 function bindChange() {
-  $('#targetMilestones, #plannedOnly').change(function(e) {
+  $('#targetMilestones').change(function(e) {
     $(document.body).removeClass('loaded');
 
     var url = 'https://bugzilla.mozilla.org/rest/bug?component=Gaia::Dialer&target_milestone=' +
@@ -71,7 +64,8 @@ function bindChange() {
     $.ajax({
       url: url,
       success: function(data) {
-        updatePoints(data.bugs);
+        bugs = data.bugs;
+        updateEstimates();
       },
       error: function() {
         alert('Error retrieving bugs for this milestone');
@@ -106,7 +100,6 @@ function requestMilestones(callback) {
     url: 'https://bugzilla.mozilla.org/rest/product/Firefox%20OS?component=Gaia',
     success: function(data) {
       targetMilestones = data.products[0].milestones.slice(1, 20).map(milestone => milestone.name);
-console.log(targetMilestones);
       insertMilestones();
     },
     error: function() {
@@ -115,9 +108,36 @@ console.log(targetMilestones);
   });
 }
 
+function renderMembers() {
+  var ptoElt = $('#pto');
+  ptoElt.html('');
+
+  var members = getMembers();
+  ptoElt.append('PTO/Downtime'.bold() + '<br>');
+  members.forEach(function(member) {
+    ptoElt.append('* \'\'\'' + member + '\'\'\': ?<br>');
+  });
+}
+
+function membersEltChanged(e) {
+  localStorage.setItem('team', e.target.value);
+  renderMembers();
+  updateEstimates();
+}
+
 window.onload = function() {
   bindChange();
   requestMilestones();
+  renderMembers();
+
+  var members = localStorage.getItem('team');
+  var membersElt = document.getElementById('team');
+  if (members) {
+    membersElt.value = members;
+  }
+
+  membersElt.addEventListener('change', membersEltChanged, true);
+  membersElt.addEventListener('keyup', membersEltChanged, true);
 };
 </script>
 
@@ -129,27 +149,25 @@ body:not(.loaded) .hideLoading, body.loaded .showLoading {
 </head>
 
 <body>
-  <h1 style="text-align: center;">Are We Done Yet?</h1>
+  <h1 style="text-align: center;">Estimates List Generator</h1>
   <div>
-    <p>This tool measures the total amount of points outstanding in a sprint. It will match the following:</p>
-    <table border="1">
-      <tr><td>"Planned Only" not enabled<td><em>c=<span style="color: red;">X</span></em> in whiteboard</td></tr>
-      <tr><td>"Planned Only" enabled<td><em>planned-sprint c=<span style="color: red;">X</span></em> in whiteboard</td></tr>
-    </table>
-    <p><em><span style="color: red;">X</span></em> values are summed up below.</p>
+    <p>This prints out a list of all estimates needed for a sprint.</p>
+    <p>Copy and paste this into the <a target="_blank"
+      href="https://etherpad.mozilla.org/fxos-dialer-estimates">estimates
+      Etherpad</a>.</p>
+    <textarea cols="40" rows="10" id="team" placeholder="Enter each team member, separated by a line."></textarea>
+  </div>
+  <br>
   <form id="velocity">
     <label for="targetMilestones">Target Milestone</label>
     <select name="targetMilestones" id="targetMilestones">
       <option>Loading...</option>
     </select>
-    <label for="plannedOnly">Planned Only</label>
-    <input type="checkbox" name="plannedOnly" id="plannedOnly"></input>
   </form>
   <div class="hideLoading">
-    <h3>Your current velocity points are:</h3>
-    <h3 id="points">---</h3>
-    <h3>Bugs</h3>
-    <ul id="bugs"></ul>
+    <p>-------------- COPY ALL BELOW --------------</p>
+    <div id="pto"></div>
+    <div id="bugs"></div>
   </div>
   <div class="showLoading">
     <h3>Loading...</h3>
