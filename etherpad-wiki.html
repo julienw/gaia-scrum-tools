@@ -50,7 +50,7 @@ window.onload = function() {
     var match;
     for (var i = 0; i < lines.length; i++) {
       if (copying) {
-        if (reportStartRegex.exec(lines[i]) || /--+/.exec(lines[i])) {
+        if (reportStartRegex.exec(lines[i]) || /^--+/.exec(lines[i])) {
           copying = false;
           newText += '\n';
           i--;
@@ -61,7 +61,8 @@ window.onload = function() {
         // Kind of gross but I don't feel like doing this properly using regex.
         if ((match = reportStartRegex.exec(lines[i])) &&
             (lines[i].contains(today + ')') || lines[i].contains(today + 'th)') ||
-             lines[i].contains(today + 'rd)') || lines[i].contains(today + 'st)'))) {
+             lines[i].contains(today + 'rd)') || lines[i].contains(today + 'st)') ||
+             lines[i].contains(today + 'nd') )) {
           copying = true;
           newText += '====' + match[1] + '====\n';
           acceptedNames.push(match[1]);
