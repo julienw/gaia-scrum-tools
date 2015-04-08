@@ -44,7 +44,7 @@ function updateEstimates() {
       return;
     }
 
-    bugsElt.append('<br>Bug ' + bug.id + ' - ' + bug.summary + '<br>');
+    bugsElt.append('<br>' + ('Bug ' + bug.id).bold() + ' - ' + bug.summary + '<br>');
     bugsElt.append('https://bugzilla.mozilla.org/show_bug.cgi?id=' + bug.id + '<br>');
 
     bugsElt.append('Consensus: ' + '<br>');
