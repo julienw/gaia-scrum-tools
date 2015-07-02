@@ -40,7 +40,7 @@ a {
   var elements = ['input', 'output', 'url', 'updateButton'].concat(formElements);
   var reTemplate = /<([^>]+)>/g;
   var reRemoveHead = /^[\s\S]*?(?:\n|^)(?==)/; // \s\S catches also the newline character
-  var reSprintMilestone = /(?=S)/;
+  var reSprintMilestone = /(?!\b)(?=S\d)/;
 
   var urlTemplate = [
     'https://bugzilla.mozilla.org/enter_bug.cgi?',
